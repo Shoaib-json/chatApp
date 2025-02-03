@@ -1,0 +1,81 @@
+<!-- views/chat.ejs -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Chat Room</title>
+  <style>
+    body { font-family: Arial; background: #f4f4f4; margin: 0; padding: 0; }
+    #chat { max-width: 600px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 5px; }
+    #messages { list-style-type: none; padding: 0; height: 300px; overflow-y: auto; border: 1px solid #ddd; margin-bottom: 10px; }
+    #messages li { padding: 8px; border-bottom: 1px solid #eee; }
+    #chatForm { display: flex; }
+    #chatForm input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 3px; }
+    #chatForm button { padding: 10px 15px; border: none; background: #007bff; color: #fff; border-radius: 3px; margin-left: 5px; cursor: pointer; }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div id="chat">
+    <h2>Chat Room</h2>
+    <ul id="messages"></ul>
+    <form id="chatForm">
+      <input id="msg" type="text" placeholder="Type your message..." required autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+    <button id="logout">Logout</button>
+  </div>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+    // Connect to Socket.io and send the JWT token for authentication
+    const socket = io({
+      auth: { token }
+    });
+    const messagesUl = document.getElementById('messages');
+    const chatForm = document.getElementById('chatForm');
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const msgInput = document.getElementById('msg');
+      const msg = msgInput.value;
+      socket.emit('chatMessage', { msg });
+      msgInput.value = '';
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected to chat server');
+    });
+
+    socket.on('message', (message) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<strong>${message.from}:</strong> ${message.msg} <br><small>${new Date(message.created_at).toLocaleString()}</small>`;
+      messagesUl.appendChild(li);
+      messagesUl.scrollTop = messagesUl.scrollHeight;
+    });
+
+    // Fetch past messages using the Bearer token in the header
+    fetch('/api/chat', {
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    })
+      .then((res) => res.json())
+      .then((messages) => {
+        messages.forEach((message) => {
+          const li = document.createElement('li');
+          li.innerHTML = `<strong>${message.from}:</strong> ${message.msg} <br><small>${new Date(message.created_at).toLocaleString()}</small>`;
+          messagesUl.appendChild(li);
+        });
+        messagesUl.scrollTop = messagesUl.scrollHeight;
+      });
+
+    document.getElementById('logout').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    });
+  </script>
+</body>
+</html>
